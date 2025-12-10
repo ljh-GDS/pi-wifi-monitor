@@ -1,0 +1,62 @@
+global:
+  resolve_timeout: 5m
+
+# Route configuration
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'telegram'
+
+  # Route critical alerts immediately
+  routes:
+    - match:
+        severity: critical
+      receiver: 'telegram'
+      group_wait: 10s
+      repeat_interval: 1h
+
+    - match:
+        severity: warning
+      receiver: 'telegram'
+      group_wait: 1m
+      repeat_interval: 4h
+
+    - match:
+        severity: info
+      receiver: 'telegram'
+      group_wait: 5m
+      repeat_interval: 12h
+
+# Receivers
+receivers:
+  - name: 'telegram'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: 0  # Replace with your actual chat ID or use environment variable
+        parse_mode: 'HTML'
+        message: |
+          {{ range .Alerts }}
+          <b>{{ .Annotations.summary }}</b>
+          {{ .Annotations.description }}
+
+          <i>Severity:</i> {{ .Labels.severity }}
+          <i>Started:</i> {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+
+# Inhibition rules - prevent notification storms
+inhibit_rules:
+  # If internet is down, don't send individual target alerts
+  - source_match:
+      alertname: 'InternetDown'
+    target_match_re:
+      alertname: '(HighLatency|PacketLoss|TargetUnreachable|SlowDownloadSpeed|SlowUploadSpeed)'
+    equal: []
+
+  # If critical packet loss, don't send warning packet loss
+  - source_match:
+      alertname: 'CriticalPacketLoss'
+    target_match:
+      alertname: 'PacketLoss'
+    equal: ['target']

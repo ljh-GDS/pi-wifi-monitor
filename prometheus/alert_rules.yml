@@ -1,0 +1,127 @@
+groups:
+  - name: internet_connectivity
+    rules:
+      # Internet is completely down
+      - alert: InternetDown
+        expr: speedtest_up == 0 or absent(speedtest_up)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🔴 Internet Connection Down"
+          description: "No internet connectivity detected for more than 2 minutes."
+
+      # Download speed is too slow
+      - alert: SlowDownloadSpeed
+        expr: speedtest_download_mbps < 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "🟡 Slow Download Speed"
+          description: "Download speed is {{ $value | printf \"%.1f\" }} Mbps (threshold: 50 Mbps)"
+
+      # Upload speed is too slow
+      - alert: SlowUploadSpeed
+        expr: speedtest_upload_mbps < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "🟡 Slow Upload Speed"
+          description: "Upload speed is {{ $value | printf \"%.1f\" }} Mbps (threshold: 10 Mbps)"
+
+  - name: latency_alerts
+    rules:
+      # High latency
+      - alert: HighLatency
+        expr: ping_latency_ms > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "🟡 High Network Latency"
+          description: "Ping to {{ $labels.target }} is {{ $value | printf \"%.1f\" }}ms (threshold: 100ms)"
+
+      # Packet loss detected
+      - alert: PacketLoss
+        expr: ping_packet_loss_percent > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "🟠 Packet Loss Detected"
+          description: "Packet loss to {{ $labels.target }} is {{ $value | printf \"%.1f\" }}% (threshold: 5%)"
+
+      # Critical packet loss
+      - alert: CriticalPacketLoss
+        expr: ping_packet_loss_percent > 20
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🔴 Critical Packet Loss"
+          description: "Packet loss to {{ $labels.target }} is {{ $value | printf \"%.1f\" }}% (threshold: 20%)"
+
+      # Target unreachable
+      - alert: TargetUnreachable
+        expr: ping_success == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🔴 Target Unreachable"
+          description: "Cannot reach {{ $labels.target }}"
+
+  - name: network_devices
+    rules:
+      # New device detected (device count increased)
+      - alert: NewDeviceDetected
+        expr: increase(network_devices_total[10m]) > 0
+        labels:
+          severity: info
+        annotations:
+          summary: "🟢 New Device Detected"
+          description: "A new device has joined the network. Total devices: {{ $value }}"
+
+      # Unusual number of devices
+      - alert: UnusualDeviceCount
+        expr: network_devices_total > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "🟡 Unusual Number of Devices"
+          description: "{{ $value }} devices detected on the network (threshold: 20)"
+
+  - name: exporter_health
+    rules:
+      # Speedtest exporter down
+      - alert: SpeedtestExporterDown
+        expr: up{job="speedtest"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🔴 Speedtest Exporter Down"
+          description: "The speedtest exporter is not responding."
+
+      # Ping exporter down
+      - alert: PingExporterDown
+        expr: up{job="ping"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🔴 Ping Exporter Down"
+          description: "The ping exporter is not responding."
+
+      # Network scanner down
+      - alert: NetworkScannerDown
+        expr: up{job="network-scanner"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "🟡 Network Scanner Down"
+          description: "The network scanner is not responding."

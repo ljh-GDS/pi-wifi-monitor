@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  # Prometheus - Time series database for metrics
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - monitoring
+
+  # Grafana - Visualization dashboard
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3000}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+  # Alertmanager - Handles alerts and notifications
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    networks:
+      - monitoring
+
+  # Speedtest Exporter - Measures internet speed
+  speedtest-exporter:
+    build:
+      context: ./exporters/speedtest-exporter
+      dockerfile: Dockerfile
+    container_name: speedtest-exporter
+    restart: unless-stopped
+    ports:
+      - "9798:9798"
+    environment:
+      - SPEEDTEST_INTERVAL=${SPEEDTEST_INTERVAL:-300}
+    networks:
+      - monitoring
+
+  # Ping Exporter - Measures latency and packet loss
+  ping-exporter:
+    build:
+      context: ./exporters/ping-exporter
+      dockerfile: Dockerfile
+    container_name: ping-exporter
+    restart: unless-stopped
+    ports:
+      - "9799:9799"
+    environment:
+      - PING_TARGETS=${PING_TARGETS:-8.8.8.8,1.1.1.1,208.67.222.222}
+      - PING_INTERVAL=${PING_INTERVAL:-10}
+    networks:
+      - monitoring
+
+  # Network Scanner - Discovers devices on the network
+  network-scanner:
+    build:
+      context: ./exporters/network-scanner
+      dockerfile: Dockerfile
+    container_name: network-scanner
+    restart: unless-stopped
+    ports:
+      - "9800:9800"
+    environment:
+      - SCAN_INTERVAL=${SCAN_INTERVAL:-300}
+      - NETWORK_RANGE=${NETWORK_RANGE:-192.168.1.0/24}
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: host
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+
+networks:
+  monitoring:
+    driver: bridge

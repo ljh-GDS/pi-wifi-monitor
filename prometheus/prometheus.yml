@@ -1,0 +1,41 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Load alert rules
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Speedtest Exporter
+  - job_name: 'speedtest'
+    scrape_interval: 5m
+    scrape_timeout: 2m
+    static_configs:
+      - targets: ['speedtest-exporter:9798']
+
+  # Ping Exporter
+  - job_name: 'ping'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['ping-exporter:9799']
+
+  # Network Scanner
+  - job_name: 'network-scanner'
+    scrape_interval: 5m
+    scrape_timeout: 2m
+    static_configs:
+      - targets: ['localhost:9800']
