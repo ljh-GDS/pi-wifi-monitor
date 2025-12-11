@@ -182,6 +182,15 @@ def scan_network():
             'vendor': vendor
         }
 
+    # Filter out Docker network interfaces
+    filtered_devices = {}
+    for ip, dev in enriched_devices.items():
+        if ip.startswith("172.18."):
+            continue
+        filtered_devices[ip] = dev
+
+    enriched_devices = filtered_devices
+
     # Calculate scan duration
     duration = time.time() - start_time
 
